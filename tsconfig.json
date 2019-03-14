@@ -5,7 +5,7 @@
         "jsx": "preserve",
         "preserveConstEnums": true,
         "sourceMap": false,
-        "outFile": "build/tree_mirror.js",
+        "outFile": "dist/tree_mirror.js",
         "lib": [
             "dom",
             "es6",
