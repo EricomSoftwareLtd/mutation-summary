@@ -12,11 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var MutationObserverCtor;
-if (typeof WebKitMutationObserver !== 'undefined')
-  MutationObserverCtor = WebKitMutationObserver;
-else
-  MutationObserverCtor = MutationObserver;
+const MutationObserverCtor = MutationObserver;
 
 if (MutationObserverCtor === undefined) {
   console.error('DOM Mutation Observers are required.');
@@ -410,7 +406,7 @@ class MutationProjection {
       return;
 
     // reachable === ENTERED || reachable === EXITED.
-    for (var child = node.firstChild; child; child = child.nextSibling) {
+    for (var child : Node = node.firstChild; child; child = child.nextSibling) {
       this.visitNode(child, reachable);
     }
   }
@@ -421,7 +417,7 @@ class MutationProjection {
 
     this.processChildlistChanges();
 
-    var parentNode = node.parentNode;
+    var parentNode: Node = node.parentNode;
     var nodeChange = this.treeChanges.get(node);
     if (nodeChange && nodeChange.oldParentNode)
       parentNode = nodeChange.oldParentNode;
@@ -487,7 +483,7 @@ class MutationProjection {
   }
 
   getOldPreviousSibling(node:Node):Node {
-    var parentNode = node.parentNode;
+    var parentNode: Node = node.parentNode;
     var nodeChange = this.treeChanges.get(node);
     if (nodeChange && nodeChange.oldParentNode)
       parentNode = nodeChange.oldParentNode;
@@ -613,7 +609,7 @@ class MutationProjection {
     return result;
   }
 
-  matchabilityChange(node:Node) {
+  matchabilityChange(node:Node) : Movement {
     // TODO(rafaelw): Include PI, CDATA?
     // Only include text nodes.
     if (this.characterDataOnly) {
@@ -697,7 +693,7 @@ class MutationProjection {
 
       var oldPrevious = mutation.previousSibling;
 
-      function recordOldPrevious(node:Node, previous:Node) {
+      let recordOldPrevious = (node:Node, previous:Node) => {
         if (!node ||
             change.oldPrevious.has(node) ||
             change.added.has(node) ||
@@ -746,7 +742,7 @@ class MutationProjection {
 
     this.processChildlistChanges();
 
-    var parentNode = node.parentNode;
+    var parentNode : Node = node.parentNode;
     var nodeChange = this.treeChanges.get(node);
     if (nodeChange && nodeChange.oldParentNode)
       parentNode = nodeChange.oldParentNode;
@@ -940,7 +936,7 @@ class Qualifier {
     if ('attrValue' in this)
       return '[' + this.attrName + '=' + escapeQuotes(this.attrValue) + ']';
 
-    return '[' + this.attrName + ']';
+    return '[' + (this as any).attrName + ']';
   }
 }
 

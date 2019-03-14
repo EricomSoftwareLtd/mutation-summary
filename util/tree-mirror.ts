@@ -24,6 +24,7 @@ interface NodeData {
   tagName?:string;
   attributes?:StringMap<string>;
   childNodes?:NodeData[];
+  isSVG?:boolean
 }
 
 interface PositionData extends NodeData {
@@ -49,6 +50,7 @@ class TreeMirror {
 
   initialize(rootId:number, children:NodeData[]) {
     this.idMap[rootId] = this.root;
+    this.root['__mirrorId'] = rootId;
 
     for (var i = 0; i < children.length; i++)
       this.deserializeNode(children[i], <Element>this.root);
@@ -88,13 +90,14 @@ class TreeMirror {
     attributes.forEach((data:AttributeData) => {
       var node = <Element> this.deserializeNode(data);
       Object.keys(data.attributes).forEach((attrName) => {
+        if(!attrName) return;
         var newVal = data.attributes[attrName];
         if (newVal === null) {
           node.removeAttribute(attrName);
         } else {
           if (!this.delegate ||
             !this.delegate.setAttribute ||
-            !this.delegate.setAttribute(node, attrName, newVal)) {
+            !this.delegate.setAttribute(node, attrName, newVal, data.attributes)) {
             node.setAttribute(attrName, newVal);
           }
         }
@@ -138,16 +141,18 @@ class TreeMirror {
 
       case Node.ELEMENT_NODE:
         if (this.delegate && this.delegate.createElement)
-          node = this.delegate.createElement(nodeData.tagName);
+          node = this.delegate.createElement(nodeData.tagName, nodeData);
         if (!node)
           node = doc.createElement(nodeData.tagName);
 
         Object.keys(nodeData.attributes).forEach((name) => {
-          if (!this.delegate ||
-            !this.delegate.setAttribute ||
-            !this.delegate.setAttribute(node, name, nodeData.attributes[name])) {
-            (<Element>node).setAttribute(name, nodeData.attributes[name]);
-          }
+          try {
+            if (!this.delegate ||
+              !this.delegate.setAttribute ||
+              !this.delegate.setAttribute(node, name, nodeData.attributes[name], nodeData.attributes)) {
+              (<Element>node).setAttribute(name, nodeData.attributes[name]);
+            }
+          } catch (ex) { console.warn(ex) }
         });
 
         break;
@@ -157,6 +162,7 @@ class TreeMirror {
       throw "ouch";
 
     this.idMap[nodeData.id] = node;
+    node['__mirrorId'] = nodeData.id;
 
     if (parent)
       parent.appendChild(node);
@@ -175,6 +181,8 @@ class TreeMirrorClient {
 
   private mutationSummary:MutationSummary;
   private knownNodes:NodeMap<number>;
+  public idMap = {}
+
 
   constructor(public target:Node, public mirror:any, testingQueries:Query[]) {
     this.nextId = 1;
@@ -182,14 +190,14 @@ class TreeMirrorClient {
 
     var rootId = this.serializeNode(target).id;
     var children:NodeData[] = [];
-    for (var child = target.firstChild; child; child = child.nextSibling)
+    for (var child : Node = target.firstChild; child; child = child.nextSibling)
       children.push(this.serializeNode(child, true));
 
     this.mirror.initialize(rootId, children);
 
     var self = this;
 
-    var queries = [{ all: true }];
+    var queries: Query[] = [{ all: true }];
 
     if (testingQueries)
       queries = queries.concat(testingQueries);
@@ -214,11 +222,14 @@ class TreeMirrorClient {
   private rememberNode(node:Node):number {
     var id = this.nextId++;
     this.knownNodes.set(node, id);
+    this.idMap[id] = node;
     return id;
   }
 
   private forgetNode(node:Node) {
+    var id = this.knownNodes.get(node);
     this.knownNodes.delete(node);
+    if (id) delete this.idMap[id]
   }
 
   private serializeNode(node:Node, recursive?:boolean):NodeData {
@@ -251,6 +262,18 @@ class TreeMirrorClient {
       case Node.ELEMENT_NODE:
         var elm = <Element>node;
         data.tagName = elm.tagName;
+        if (data.tagName === 'STYLE' && !node.childNodes.length && recursive) {
+          let sheet = (node as HTMLStyleElement).sheet as CSSStyleSheet;
+          if (sheet.rules && sheet.rules.length) {
+            data.childNodes = [{
+              nodeType: Node.TEXT_NODE,
+              id: this.nextId++,
+              textContent: Array.from(sheet.rules).map(r => r.cssText).join('\n')
+            }]
+          }
+        }
+        data.isSVG = data.tagName === 'svg' || node instanceof SVGElement;
+
         data.attributes = {};
         for (var i = 0; i < elm.attributes.length; i++) {
           var attr = elm.attributes[i];
@@ -260,7 +283,7 @@ class TreeMirrorClient {
         if (recursive && elm.childNodes.length) {
           data.childNodes = [];
 
-          for (var child = elm.firstChild; child; child = child.nextSibling)
+          for (var child: Node = elm.firstChild; child; child = child.nextSibling)
             data.childNodes.push(this.serializeNode(child, true));
         }
         break;

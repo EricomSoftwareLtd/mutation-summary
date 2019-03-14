@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "module": "none",
+        "target": "ES5",
+        "jsx": "preserve",
+        "preserveConstEnums": true,
+        "sourceMap": false,
+        "outFile": "build/tree_mirror.js",
+        "lib": [
+            "dom",
+            "es6",
+        ]
+    },
+    "files": [
+        "util/tree-mirror.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "**/node_modules/*"
+    ]
+}
